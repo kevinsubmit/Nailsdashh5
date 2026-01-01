@@ -1,0 +1,166 @@
+"""
+Authentication API endpoints
+"""
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from app.db.session import get_db
+from app.schemas.user import UserCreate, UserLogin, UserResponse, Token
+from app.crud import user as crud_user
+from app.core.security import create_access_token, create_refresh_token, verify_password
+from app.api.deps import get_current_user
+from app.models.user import User
+
+
+router = APIRouter()
+
+
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def register(
+    user_in: UserCreate,
+    db: Session = Depends(get_db)
+):
+    """
+    Register a new user
+    
+    Args:
+        user_in: User registration data
+        db: Database session
+        
+    Returns:
+        Created user data
+        
+    Raises:
+        HTTPException: If email or username already exists
+    """
+    # Check if user already exists
+    existing_user = crud_user.get_by_email(db, email=user_in.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    existing_username = crud_user.get_by_username(db, username=user_in.username)
+    if existing_username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already taken"
+        )
+    
+    # Create new user
+    user = crud_user.create(db, obj_in=user_in)
+    return user
+
+
+@router.post("/login", response_model=Token)
+async def login(
+    user_credentials: UserLogin,
+    db: Session = Depends(get_db)
+):
+    """
+    User login
+    
+    Args:
+        user_credentials: User login credentials
+        db: Database session
+        
+    Returns:
+        JWT access and refresh tokens
+        
+    Raises:
+        HTTPException: If credentials are invalid
+    """
+    # Get user by email
+    user = crud_user.get_by_email(db, email=user_credentials.email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
+    
+    # Verify password
+    if not verify_password(user_credentials.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
+    
+    # Check if user is active
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive"
+        )
+    
+    # Create tokens
+    access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get current user information
+    
+    Args:
+        current_user: Current authenticated user
+        
+    Returns:
+        Current user data
+    """
+    return current_user
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token(
+    refresh_token: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Refresh access token
+    
+    Args:
+        refresh_token: Refresh token
+        db: Database session
+        
+    Returns:
+        New access and refresh tokens
+        
+    Raises:
+        HTTPException: If refresh token is invalid
+    """
+    from app.core.security import decode_token, verify_token_type
+    
+    # Decode and verify refresh token
+    payload = decode_token(refresh_token)
+    if not verify_token_type(payload, "refresh"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type"
+        )
+    
+    user_id = int(payload.get("sub"))
+    user = crud_user.get(db, id=user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    # Create new tokens
+    access_token = create_access_token(data={"sub": str(user.id), "email": user.email})
+    new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer"
+    }
