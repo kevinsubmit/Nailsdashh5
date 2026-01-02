@@ -93,22 +93,7 @@ def get_valid_code(
     ).first()
 
 
-def mark_as_used(db: Session, verification_code: VerificationCode) -> VerificationCode:
-    """
-    Mark verification code as used
-    
-    Args:
-        db: Database session
-        verification_code: Verification code object
-        
-    Returns:
-        Updated verification code object
-    """
-    verification_code.is_used = True
-    db.add(verification_code)
-    db.commit()
-    db.refresh(verification_code)
-    return verification_code
+
 
 
 def delete_expired(db: Session) -> int:
@@ -127,3 +112,75 @@ def delete_expired(db: Session) -> int:
     ).delete()
     db.commit()
     return deleted
+
+
+def verify_code(
+    db: Session,
+    phone: str,
+    code: str,
+    code_type: str
+) -> bool:
+    """
+    Verify verification code
+    
+    Args:
+        db: Database session
+        phone: Phone number
+        code: Verification code
+        code_type: Type of the code (register, login, reset_password)
+        
+    Returns:
+        True if code is valid, False otherwise
+    """
+    verification = get_valid_code(db, phone, code, code_type)
+    return verification is not None
+
+
+def create_verification_code(
+    db: Session,
+    phone: str,
+    code_type: str,
+    expires_in_minutes: int = 10
+) -> VerificationCode:
+    """
+    Create verification code (alias for create function)
+    
+    Args:
+        db: Database session
+        phone: Phone number
+        code_type: Type of the code (register, login, reset_password)
+        expires_in_minutes: Code expiration time in minutes
+        
+    Returns:
+        Created verification code object
+    """
+    return create(db, phone, code_type, expires_in_minutes)
+
+
+def mark_as_used(db: Session, phone: str, code: str) -> bool:
+    """
+    Mark verification code as used by phone and code
+    
+    Args:
+        db: Database session
+        phone: Phone number
+        code: Verification code
+        
+    Returns:
+        True if marked successfully, False otherwise
+    """
+    now = datetime.utcnow()
+    verification = db.query(VerificationCode).filter(
+        VerificationCode.phone == phone,
+        VerificationCode.code == code,
+        VerificationCode.is_used == False,
+        VerificationCode.expires_at > now
+    ).first()
+    
+    if verification:
+        verification.is_used = True
+        db.add(verification)
+        db.commit()
+        db.refresh(verification)
+        return True
+    return False
