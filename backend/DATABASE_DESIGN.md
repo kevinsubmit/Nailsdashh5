@@ -7,18 +7,45 @@
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
 | id | INT | PRIMARY KEY, AUTO_INCREMENT | 用户ID |
-| email | VARCHAR(255) | UNIQUE, NOT NULL | 邮箱 |
+| phone | VARCHAR(20) | UNIQUE, NOT NULL | 手机号（主要登录方式） |
+| email | VARCHAR(255) | UNIQUE, NULL | 邮箱（可选） |
 | password_hash | VARCHAR(255) | NOT NULL | 密码哈希 |
 | username | VARCHAR(100) | UNIQUE, NOT NULL | 用户名 |
 | full_name | VARCHAR(200) | NULL | 全名 |
 | avatar_url | VARCHAR(500) | NULL | 头像URL |
-| phone | VARCHAR(20) | NULL | 电话号码 |
+| phone_verified | BOOLEAN | DEFAULT FALSE | 手机号是否已验证 |
 | is_active | BOOLEAN | DEFAULT TRUE | 是否激活 |
 | is_admin | BOOLEAN | DEFAULT FALSE | 是否管理员 |
 | created_at | DATETIME | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
 | updated_at | DATETIME | ON UPDATE CURRENT_TIMESTAMP | 更新时间 |
 
-### 2. stores (店铺表)
+**重要变更说明：**
+- 主要登录方式从邮箱改为手机号
+- `phone` 字段现在是必填且唯一
+- `email` 字段改为可选
+- 新增 `phone_verified` 字段用于跟踪手机验证状态
+- 支持美国手机号格式（10位或11位）
+
+### 2. verification_codes (验证码表)
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| id | INT | PRIMARY KEY, AUTO_INCREMENT | 验证码ID |
+| phone | VARCHAR(20) | NOT NULL | 手机号 |
+| code | VARCHAR(6) | NOT NULL | 6位验证码 |
+| code_type | VARCHAR(20) | NOT NULL | 验证码类型（register/login/reset_password） |
+| is_used | BOOLEAN | DEFAULT FALSE | 是否已使用 |
+| expires_at | DATETIME | NOT NULL | 过期时间 |
+| created_at | DATETIME | DEFAULT CURRENT_TIMESTAMP | 创建时间 |
+
+**验证码功能说明：**
+- 6位数字验证码
+- 有效期10分钟
+- 使用后自动失效
+- 支持注册、登录、重置密码等场景
+- 过期验证码自动清理
+
+### 3. stores (店铺表)
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
