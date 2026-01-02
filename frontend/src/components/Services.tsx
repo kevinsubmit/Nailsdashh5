@@ -295,7 +295,7 @@ export function Services({ onBookingSuccess, initialStep, initialSelectedStore, 
                 onBack={() => navigate('/services')} 
                 onBookingComplete={(booking) => {
                   onBookingSuccess?.(booking);
-                  navigate('/services');
+                  navigate('/appointments');
                 }}
             />
           )}
