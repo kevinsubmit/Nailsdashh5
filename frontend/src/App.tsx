@@ -33,6 +33,7 @@ export default function App() {
   const isFullScreenPage = currentPage === 'pin-detail' || currentPage === 'edit-profile' || currentPage === 'order-history' || currentPage === 'my-points' || currentPage === 'my-coupons' || currentPage === 'my-gift-cards' || currentPage === 'settings' || currentPage === 'vip-description' || currentPage === 'login-test';
 
   const handleNavigate = (page: 'home' | 'services' | 'appointments' | 'profile' | 'deals') => {
+    console.log('handleNavigate called with page:', page);
     // Save current scroll position before navigating
     scrollPositions.current[currentPage] = window.scrollY;
     
@@ -40,7 +41,9 @@ export default function App() {
     if (page === 'services') {
       setSelectedSalon(null);
     }
+    console.log('Setting currentPage to:', page);
     setCurrentPage(page);
+    console.log('currentPage updated');
   };
 
   const handlePinClick = (pinData: any) => {

@@ -75,11 +75,15 @@ export function LoginTest({ onLoginSuccess }: LoginTestProps = {}) {
       const userInfo = await getCurrentUser();
       
       // Call onLoginSuccess callback to navigate to home BEFORE setting user state
+      console.log('Login successful, onLoginSuccess callback:', onLoginSuccess ? 'exists' : 'not provided');
       if (onLoginSuccess) {
+        console.log('Calling onLoginSuccess in 500ms...');
         setTimeout(() => {
+          console.log('Executing onLoginSuccess callback now!');
           onLoginSuccess();
         }, 500); // Small delay to show success message
       } else {
+        console.log('No callback, showing user info');
         // Only set user state if no callback (for testing purposes)
         setUser(userInfo);
       }
