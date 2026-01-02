@@ -13,13 +13,14 @@ import { Settings } from './components/Settings';
 import { MyGiftCards } from './components/MyGiftCards';
 import { Deals } from './components/Deals';
 import { VipDescription } from './components/VipDescription';
+import { LoginTest } from './components/LoginTest';
 import { toast } from 'react-toastify';
 import { Sparkles } from 'lucide-react';
 
-export type Page = 'home' | 'services' | 'appointments' | 'profile' | 'deals' | 'pin-detail' | 'edit-profile' | 'order-history' | 'my-points' | 'my-coupons' | 'my-gift-cards' | 'settings' | 'vip-description';
+export type Page = 'home' | 'services' | 'appointments' | 'profile' | 'deals' | 'pin-detail' | 'edit-profile' | 'order-history' | 'my-points' | 'my-coupons' | 'my-gift-cards' | 'settings' | 'vip-description' | 'login-test';
 
 export default function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('home');
+  const [currentPage, setCurrentPage] = useState<Page>('login-test');
   const [selectedPin, setSelectedPin] = useState<any>(null);
   const [selectedSalon, setSelectedSalon] = useState<any>(null);
   const [settingsSection, setSettingsSection] = useState<'main' | 'referral' | 'vip'>('main');
@@ -29,7 +30,7 @@ export default function App() {
   const scrollPositions = useRef<Record<string, number>>({});
   const prevPageRef = useRef<Page>(currentPage);
 
-  const isFullScreenPage = currentPage === 'pin-detail' || currentPage === 'edit-profile' || currentPage === 'order-history' || currentPage === 'my-points' || currentPage === 'my-coupons' || currentPage === 'my-gift-cards' || currentPage === 'settings' || currentPage === 'vip-description';
+  const isFullScreenPage = currentPage === 'pin-detail' || currentPage === 'edit-profile' || currentPage === 'order-history' || currentPage === 'my-points' || currentPage === 'my-coupons' || currentPage === 'my-gift-cards' || currentPage === 'settings' || currentPage === 'vip-description' || currentPage === 'login-test';
 
   const handleNavigate = (page: 'home' | 'services' | 'appointments' | 'profile' | 'deals') => {
     // Save current scroll position before navigating
@@ -212,6 +213,10 @@ export default function App() {
         <VipDescription 
             onBack={() => setCurrentPage('profile')}
         />
+      )}
+
+      {currentPage === 'login-test' && (
+        <LoginTest />
       )}
       
       {/* Hide BottomNav when in FullScreen views */}
