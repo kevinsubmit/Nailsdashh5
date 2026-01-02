@@ -124,6 +124,11 @@
     @apply border-border outline-ring/50;
   }
 
+  html, body {
+    overflow: auto !important;
+    touch-action: pan-y !important;
+  }
+
   body {
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
