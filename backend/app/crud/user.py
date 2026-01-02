@@ -22,9 +22,23 @@ def get(db: Session, id: int) -> Optional[User]:
     return db.query(User).filter(User.id == id).first()
 
 
+def get_by_phone(db: Session, phone: str) -> Optional[User]:
+    """
+    Get user by phone number
+    
+    Args:
+        db: Database session
+        phone: User phone number
+        
+    Returns:
+        User object or None
+    """
+    return db.query(User).filter(User.phone == phone).first()
+
+
 def get_by_email(db: Session, email: str) -> Optional[User]:
     """
-    Get user by email
+    Get user by email (optional field)
     
     Args:
         db: Database session
@@ -62,11 +76,12 @@ def create(db: Session, obj_in: UserCreate) -> User:
         Created user object
     """
     db_obj = User(
-        email=obj_in.email,
+        phone=obj_in.phone,
         username=obj_in.username,
         password_hash=get_password_hash(obj_in.password),
         full_name=obj_in.full_name,
-        phone=obj_in.phone
+        email=obj_in.email,
+        phone_verified=True  # 注册时验证过验证码，所以设为True
     )
     db.add(db_obj)
     db.commit()

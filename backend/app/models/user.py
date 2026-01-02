@@ -10,16 +10,17 @@ class User(Base):
     __tablename__ = "backend_users"
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    email = Column(String(255), unique=True, nullable=False, index=True)
+    phone = Column(String(20), unique=True, nullable=False, index=True)  # 手机号，唯一必填
     password_hash = Column(String(255), nullable=False)
     username = Column(String(100), unique=True, nullable=False, index=True)
     full_name = Column(String(200), nullable=True)
+    email = Column(String(255), nullable=True)  # 邮箱改为可选
     avatar_url = Column(String(500), nullable=True)
-    phone = Column(String(20), nullable=True)
+    phone_verified = Column(Boolean, default=False, nullable=False)  # 手机号是否已验证
     is_active = Column(Boolean, default=True, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     
     def __repr__(self):
-        return f"<User(id={self.id}, username={self.username}, email={self.email})>"
+        return f"<User(id={self.id}, username={self.username}, phone={self.phone})>"
