@@ -1,4 +1,4 @@
-import { useState, useRef, useLayoutEffect } from 'react';
+import { useState, useRef, useLayoutEffect, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Home } from './components/Home';
 import { Services } from './components/Services';
@@ -30,6 +30,12 @@ function AppRouter() {
   
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Force clear body overflow on route change to prevent scroll lock
+  useEffect(() => {
+    document.body.style.overflow = '';
+    document.body.style.removeProperty('overflow');
+  }, [location.pathname]);
   
   // Create a ref to store scroll positions for each page
   const scrollPositions = useRef<Record<string, number>>({});
