@@ -132,7 +132,8 @@ def verify_code(
     Returns:
         True if code is valid, False otherwise
     """
-    verification = get_valid_code(db, phone, code, code_type)
+    # Note: code_type parameter maps to purpose field in database
+    verification = get_valid_code(db, phone, code, purpose=code_type)
     return verification is not None
 
 
@@ -154,7 +155,8 @@ def create_verification_code(
     Returns:
         Created verification code object
     """
-    return create(db, phone, code_type, expires_in_minutes)
+    # Note: code_type parameter maps to purpose field in database
+    return create(db, phone, purpose=code_type, expires_in_minutes=expires_in_minutes)
 
 
 def mark_as_used(db: Session, phone: str, code: str) -> bool:
