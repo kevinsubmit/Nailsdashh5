@@ -73,13 +73,15 @@ export function LoginTest({ onLoginSuccess }: LoginTestProps = {}) {
       
       // Fetch user info
       const userInfo = await getCurrentUser();
-      setUser(userInfo);
       
-      // Call onLoginSuccess callback to navigate to home
+      // Call onLoginSuccess callback to navigate to home BEFORE setting user state
       if (onLoginSuccess) {
         setTimeout(() => {
           onLoginSuccess();
         }, 500); // Small delay to show success message
+      } else {
+        // Only set user state if no callback (for testing purposes)
+        setUser(userInfo);
       }
     } catch (error: any) {
       toast.error(error.message || 'Login failed');
