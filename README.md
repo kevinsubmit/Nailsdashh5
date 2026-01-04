@@ -90,7 +90,7 @@ uvicorn app.main:app --reload
 ### 待开发功能
 
 #### 后端模块
-- [ ] 店铺管理模块
+- [x] 店铺管理模块（已完成）
 - [ ] 服务项目模块
 - [ ] 美甲师模块
 - [ ] 预约系统
@@ -135,6 +135,17 @@ uvicorn app.main:app --reload
 - `GET /health` - 健康检查
 - `GET /api/docs` - Swagger UI文档
 
+### 店铺管理
+- `GET /api/v1/stores/` - 获取店铺列表
+- `GET /api/v1/stores/{store_id}` - 获取店铺详情
+- `POST /api/v1/stores/` - 创建店铺（管理员）
+- `PATCH /api/v1/stores/{store_id}` - 更新店铺（管理员）
+- `DELETE /api/v1/stores/{store_id}` - 删除店铺（管理员）
+- `GET /api/v1/stores/{store_id}/images` - 获取店铺图片
+- `POST /api/v1/stores/{store_id}/images` - 添加店铺图片（管理员）
+- `DELETE /api/v1/stores/{store_id}/images/{image_id}` - 删除图片（管理员）
+- `GET /api/v1/stores/{store_id}/services` - 获取店铺服务
+
 更多API端点正在开发中...
 
 ## 测试
@@ -149,6 +160,11 @@ python test_api.py
 **测试结果**：7/7 测试通过 (100%)
 
 详细测试报告：`backend/TEST_REPORT.md`
+
+## API文档
+
+- [店铺管理模块API文档](docs/Store_Management_API.md)
+- [Reschedule功能测试报告](docs/NailsDash_Reschedule_Test_Report.md)
 
 ## 部署
 

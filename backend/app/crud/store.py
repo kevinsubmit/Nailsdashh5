@@ -77,3 +77,33 @@ def create_store_image(db: Session, store_id: int, image_url: str, is_primary: i
     db.commit()
     db.refresh(db_image)
     return db_image
+
+
+def delete_store(db: Session, store_id: int) -> bool:
+    """Delete store"""
+    db_store = get_store(db, store_id)
+    if not db_store:
+        return False
+    
+    # Delete associated images first
+    db.query(StoreImage).filter(StoreImage.store_id == store_id).delete()
+    
+    # Delete store
+    db.delete(db_store)
+    db.commit()
+    return True
+
+
+def delete_store_image(db: Session, image_id: int, store_id: int) -> bool:
+    """Delete store image"""
+    db_image = db.query(StoreImage).filter(
+        StoreImage.id == image_id,
+        StoreImage.store_id == store_id
+    ).first()
+    
+    if not db_image:
+        return False
+    
+    db.delete(db_image)
+    db.commit()
+    return True

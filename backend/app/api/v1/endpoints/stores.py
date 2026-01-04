@@ -5,9 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_current_admin_user
+from app.models.user import User
 from app.crud import store as crud_store, service as crud_service
-from app.schemas.store import Store, StoreWithImages, StoreImage
+from app.schemas.store import Store, StoreWithImages, StoreImage, StoreCreate, StoreUpdate, StoreImageCreate
 from app.schemas.service import Service
 
 router = APIRouter()
@@ -87,3 +88,128 @@ def get_store_services(
     
     services = crud_service.get_store_services(db, store_id=store_id)
     return services
+
+
+@router.post("/", response_model=Store, status_code=201)
+def create_store(
+    store: StoreCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Create a new store (Admin only)
+    
+    Requires admin permissions
+    """
+    new_store = crud_store.create_store(db, store=store)
+    return new_store
+
+
+@router.patch("/{store_id}", response_model=Store)
+def update_store(
+    store_id: int,
+    store: StoreUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Update store information (Admin only)
+    
+    Requires admin permissions
+    """
+    updated_store = crud_store.update_store(db, store_id=store_id, store=store)
+    if not updated_store:
+        raise HTTPException(status_code=404, detail="Store not found")
+    return updated_store
+
+
+@router.delete("/{store_id}", status_code=204)
+def delete_store(
+    store_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Delete a store (Admin only)
+    
+    Requires admin permissions
+    """
+    store = crud_store.get_store(db, store_id=store_id)
+    if not store:
+        raise HTTPException(status_code=404, detail="Store not found")
+    
+    crud_store.delete_store(db, store_id=store_id)
+    return None
+
+
+@router.post("/{store_id}/images", response_model=StoreImage, status_code=201)
+def create_store_image(
+    store_id: int,
+    image_url: str,
+    is_primary: int = 0,
+    display_order: int = 0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Add an image to a store (Admin only)
+    
+    Requires admin permissions
+    """
+    store = crud_store.get_store(db, store_id=store_id)
+    if not store:
+        raise HTTPException(status_code=404, detail="Store not found")
+    
+    new_image = crud_store.create_store_image(
+        db,
+        store_id=store_id,
+        image_url=image_url,
+        is_primary=is_primary,
+        display_order=display_order
+    )
+    return new_image
+
+
+@router.delete("/{store_id}/images/{image_id}", status_code=204)
+def delete_store_image(
+    store_id: int,
+    image_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Delete a store image (Admin only)
+    
+    Requires admin permissions
+    """
+    store = crud_store.get_store(db, store_id=store_id)
+    if not store:
+        raise HTTPException(status_code=404, detail="Store not found")
+    
+    deleted = crud_store.delete_store_image(db, image_id=image_id, store_id=store_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    return None
+
+@router.delete("/{store_id}/images/{image_id}", status_code=204)
+def delete_store_image(
+    store_id: int,
+    image_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """
+    Delete a store image (Admin only)
+    
+    Requires admin permissions
+    """
+    store = crud_store.get_store(db, store_id=store_id)
+    if not store:
+        raise HTTPException(status_code=404, detail="Store not found")
+    
+    deleted = crud_store.delete_store_image(db, image_id=image_id, store_id=store_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    return None
