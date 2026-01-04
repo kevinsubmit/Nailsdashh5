@@ -23,13 +23,12 @@ router = APIRouter()
 def create_appointment(
     appointment: AppointmentCreate,
     db: Session = Depends(get_db),
-    current_user: Optional[UserResponse] = Depends(lambda: None)  # Temporarily allow no auth
+    current_user: UserResponse = Depends(get_current_user)
 ):
     """
-    Create a new appointment (temporarily allows no authentication for testing)
+    Create a new appointment (requires authentication)
     """
-    # Use default user ID (1) if not authenticated
-    user_id = current_user.id if current_user else 1
+    user_id = current_user.id
     
     # Check for conflicts
     has_conflict = crud_appointment.check_appointment_conflict(

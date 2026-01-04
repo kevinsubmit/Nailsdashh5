@@ -17,6 +17,7 @@ import { VipDescription } from './components/VipDescription';
 import { Login } from './components/Login';
 import { Register } from './components/Register';
 import { AuthProvider } from './contexts/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
 import { toast } from 'react-toastify';
 import { Sparkles } from 'lucide-react';
 
@@ -137,36 +138,45 @@ function AppRouter() {
 
         {/* Protected Routes */}
         <Route path="/" element={
-          <Home 
+          <ProtectedRoute>
+            <Home 
               onNavigate={handleNavigate} 
               onPinClick={handlePinClick}
             />
+          </ProtectedRoute>
         } />
 
         <Route path="/services" element={
-          <Services 
+          <ProtectedRoute>
+            <Services 
               onBookingSuccess={handleBookingSuccess}
               onStoreDetailsChange={setIsViewingStoreDetails}
             />
+          </ProtectedRoute>
         } />
 
         <Route path="/services/:storeId" element={
-          <Services 
+          <ProtectedRoute>
+            <Services 
               onBookingSuccess={handleBookingSuccess}
               onStoreDetailsChange={setIsViewingStoreDetails}
             />
+          </ProtectedRoute>
         } />
 
         <Route path="/appointments" element={
-          <Appointments 
+          <ProtectedRoute>
+            <Appointments 
               newBooking={myBookings[myBookings.length - 1]} 
               onClearNewBooking={() => setMyBookings(myBookings.slice(0, -1))} 
               onNavigate={handleNavigate}
             />
+          </ProtectedRoute>
         } />
 
         <Route path="/profile" element={
-          <Profile 
+          <ProtectedRoute>
+            <Profile 
               onNavigate={(page, sub) => {
                 scrollPositions.current[currentPage] = window.scrollY;
                 if (page === 'settings' && sub) {
@@ -191,13 +201,16 @@ function AppRouter() {
                 navigate('/pin-detail');
               }}
             />
+          </ProtectedRoute>
         } />
 
         <Route path="/deals" element={
-          <Deals 
+          <ProtectedRoute>
+            <Deals 
               onBack={() => navigate('/')}
               onSelectSalon={handleSelectSalon}
             />
+          </ProtectedRoute>
         } />
 
         {/* Sub-pages / Overlays */}
