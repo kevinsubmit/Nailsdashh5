@@ -168,3 +168,156 @@ def toggle_technician_availability(
         technician=TechnicianUpdate(is_active=is_active)
     )
     return updated_technician
+
+
+@router.get("/{technician_id}/appointments", response_model=List[dict])
+def get_technician_appointments(
+    technician_id: int,
+    date: Optional[str] = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    status: Optional[str] = Query(None, description="Filter by status"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get technician's appointments (public endpoint)
+    """
+    from app.models.appointment import Appointment, AppointmentStatus
+    from app.models.service import Service
+    from app.models.user import User
+    from datetime import datetime, date as date_type
+    
+    # Check if technician exists
+    technician = crud_technician.get_technician(db, technician_id=technician_id)
+    if not technician:
+        raise HTTPException(status_code=404, detail="Technician not found")
+    
+    # Build query
+    query = db.query(
+        Appointment,
+        Service.name.label('service_name'),
+        Service.duration_minutes.label('duration'),
+        User.username.label('customer_name')
+    ).join(
+        Service, Appointment.service_id == Service.id
+    ).join(
+        User, Appointment.user_id == User.id
+    ).filter(
+        Appointment.technician_id == technician_id
+    )
+    
+    # Apply filters
+    if date:
+        try:
+            filter_date = datetime.strptime(date, "%Y-%m-%d").date()
+            query = query.filter(Appointment.appointment_date == filter_date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
+    if status:
+        try:
+            status_enum = AppointmentStatus(status)
+            query = query.filter(Appointment.status == status_enum)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid status. Use: {', '.join([s.value for s in AppointmentStatus])}")
+    
+    # Execute query
+    appointments = query.order_by(
+        Appointment.appointment_date,
+        Appointment.appointment_time
+    ).all()
+    
+    # Format response
+    result = []
+    for appt, service_name, duration, customer_name in appointments:
+        result.append({
+            "id": appt.id,
+            "appointment_date": str(appt.appointment_date),
+            "appointment_time": str(appt.appointment_time),
+            "service_name": service_name,
+            "duration_minutes": duration,
+            "customer_name": customer_name,
+            "status": appt.status,
+            "notes": appt.notes
+        })
+    
+    return result
+
+
+@router.get("/{technician_id}/available-slots", response_model=List[dict])
+def get_technician_available_slots(
+    technician_id: int,
+    date: str = Query(..., description="Date to check availability (YYYY-MM-DD)"),
+    service_id: int = Query(..., description="Service ID to calculate duration"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get technician's available time slots for a specific date and service
+    """
+    from app.models.appointment import Appointment, AppointmentStatus
+    from app.models.service import Service
+    from app.models.store import Store
+    from datetime import datetime, timedelta, time as time_type
+    
+    # Check if technician exists
+    technician = crud_technician.get_technician(db, technician_id=technician_id)
+    if not technician:
+        raise HTTPException(status_code=404, detail="Technician not found")
+    
+    # Check if service exists
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
+    
+    # Parse date
+    try:
+        check_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
+    # Get store hours (assuming 9:00-18:00 for now, can be enhanced later)
+    store_open_time = time_type(9, 0)
+    store_close_time = time_type(18, 0)
+    slot_interval = 30  # 30-minute slots
+    
+    # Get technician's existing appointments for the date
+    existing_appointments = db.query(Appointment, Service).join(
+        Service, Appointment.service_id == Service.id
+    ).filter(
+        Appointment.technician_id == technician_id,
+        Appointment.appointment_date == check_date,
+        Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED])
+    ).all()
+    
+    # Build list of busy time ranges
+    busy_ranges = []
+    for appt, appt_service in existing_appointments:
+        start_datetime = datetime.combine(check_date, appt.appointment_time)
+        end_datetime = start_datetime + timedelta(minutes=appt_service.duration_minutes)
+        busy_ranges.append((start_datetime, end_datetime))
+    
+    # Generate available slots
+    available_slots = []
+    current_time = datetime.combine(check_date, store_open_time)
+    end_time = datetime.combine(check_date, store_close_time)
+    service_duration = timedelta(minutes=service.duration_minutes)
+    
+    while current_time + service_duration <= end_time:
+        slot_end_time = current_time + service_duration
+        
+        # Check if this slot conflicts with any busy range
+        is_available = True
+        for busy_start, busy_end in busy_ranges:
+            if (current_time < busy_end and slot_end_time > busy_start):
+                is_available = False
+                break
+        
+        if is_available:
+            available_slots.append({
+                "start_time": current_time.strftime("%H:%M"),
+                "end_time": slot_end_time.strftime("%H:%M"),
+                "duration_minutes": service.duration_minutes
+            })
+        
+        # Move to next slot
+        current_time += timedelta(minutes=slot_interval)
+    
+    return available_slots

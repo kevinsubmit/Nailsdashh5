@@ -138,4 +138,64 @@
   - [x] 更新Service_Management_API.md
   - [x] Technician_Management_API.md已在之前更新
 - [x] 更新README
+- [x] 提交代码到GitHub
+
+## 预约系统增强
+
+### Phase 1: 时间冲突检查
+- [x] 分析现有预约系统代码和数据库结构
+- [x] 实现美甲师时间冲突检查
+  - [x] 检查美甲师在预约时间段是否已有其他预约
+  - [x] 根据服务时长计算时间段占用
+  - [x] 返回明确的冲突错误提示
+- [x] 实现用户时间冲突检查
+  - [x] 检查用户在预约时间段是否已有其他预约
+  - [x] 防止用户同时预约多个服务
+- [x] 在创建预约API中集成冲突检查
+
+### Phase 2: 美甲师日程管理
+- [x] 实现获取美甲师预约列表API
+  - [x] GET /api/v1/technicians/{technician_id}/appointments
+  - [x] 支持按日期筛选
+  - [x] 支持按状态筛选
+- [x] 实现获取美甲师可用时间段API
+  - [x] GET /api/v1/technicians/{technician_id}/available-slots
+  - [x] 根据已有预约计算可用时间
+  - [x] 考虑店铺营业时间
+  - [x] 返回可预约的时间段列表
+
+### Phase 3: 店铺管理员预约管理
+- [x] 实现店铺预约列表API
+  - [x] GET /api/v1/stores/{store_id}/appointments
+  - [x] 店铺管理员只能查看自己店铺的预约
+  - [x] 支持按日期、状态筛选
+  - [x] 支持分页
+- [x] 实现店铺管理员确认预约API
+  - [x] PATCH /api/v1/appointments/{id}/confirm
+  - [x] 验证预约属于管理员的店铺
+- [x] 实现预约统计API
+  - [x] GET /api/v1/stores/{store_id}/appointments/stats
+  - [x] 今日预约数、本周预约数、本月预约数
+  - [x] 按状态统计
+
+### Phase 4: 预约状态流转规则
+
+- [x] 定义状态转换规则
+  - [x] pending -> confirmed (店铺管理员确认)
+  - [x] pending -> cancelled (用户取消)
+  - [x] confirmed -> completed (服务完成)
+  - [x] confirmed -> cancelled (特殊情况)
+- [x] 在更新预约API中添加状态验证
+- [ ] 添加状态变更历史记录表（可选）
+### 测试
+- [x] 测试时间冲突检查（美甲师冲突、用户冲突）
+- [x] 测试美甲师日程查询
+- [x] 测试可用时间段计算
+- [x] 测试店铺管理员预约管理权限
+- [x] 测试预约统计数据准确性
+- [x] 测试状态流转规则
+
+### 文档
+- [x] 创建预约系统增强API文档
+- [ ] 更新README
 - [ ] 提交代码到GitHub

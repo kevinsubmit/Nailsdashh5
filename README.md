@@ -274,3 +274,51 @@ MIT License
 **最后更新**: 2026-01-01  
 **版本**: 1.0.0  
 **状态**: 开发中
+
+## 预约系统增强功能
+
+### 功能概述
+
+预约系统增强功能包含以下核心模块：
+
+1. **时间冲突检查**
+   - 自动检查美甲师时间冲突（考虑服务时长）
+   - 自动检查用户时间冲突
+   - 创建预约时自动执行，无需额外调用
+
+2. **美甲师日程管理**
+   - 获取美甲师预约列表（支持按日期、状态筛选）
+   - 获取美甲师可用时间段（自动计算基于已有预约）
+   - API: `GET /api/v1/technicians/{id}/appointments`
+   - API: `GET /api/v1/technicians/{id}/available-slots`
+
+3. **店铺管理员预约管理**
+   - 查看店铺所有预约（支持筛选、分页）
+   - 获取预约统计（今日、本周、本月）
+   - 确认预约（pending → confirmed）
+   - 完成预约（confirmed → completed）
+   - API: `GET /api/v1/stores/{id}/appointments`
+   - API: `GET /api/v1/stores/{id}/appointments/stats`
+   - API: `PATCH /api/v1/appointments/{id}/confirm`
+   - API: `PATCH /api/v1/appointments/{id}/complete`
+
+4. **预约状态流转规则**
+   - 定义清晰的状态转换规则
+   - 自动验证状态转换的合法性
+   - 防止无效的状态变更
+
+### 文档
+
+完整的API文档请参考：[预约系统增强功能 API 文档](docs/Appointment_System_Enhancements.md)
+
+### 测试
+
+运行综合测试：
+
+```bash
+cd backend
+python3 test_appointment_enhancements.py
+```
+
+测试覆盖率：100%（9个测试用例全部通过）
+

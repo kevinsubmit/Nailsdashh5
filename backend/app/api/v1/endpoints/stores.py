@@ -218,3 +218,205 @@ def delete_store_image(
         raise HTTPException(status_code=404, detail="Image not found")
     
     return None
+
+
+@router.get("/{store_id}/appointments", response_model=List[dict])
+def get_store_appointments(
+    store_id: int,
+    date: Optional[str] = Query(None, description="Filter by date (YYYY-MM-DD)"),
+    status: Optional[str] = Query(None, description="Filter by status"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_store_admin)
+):
+    """
+    Get store's appointments (Store admin only)
+    
+    - Super admin can view appointments from any store
+    - Store manager can only view appointments from their own store
+    """
+    from app.models.appointment import Appointment, AppointmentStatus
+    from app.models.service import Service
+    from app.models.technician import Technician
+    from app.models.user import User as UserModel
+    from datetime import datetime
+    
+    # Check if store exists
+    store = crud_store.get_store(db, store_id=store_id)
+    if not store:
+        raise HTTPException(status_code=404, detail="Store not found")
+    
+    # If user is store manager (not super admin), enforce store ownership
+    if not current_user.is_admin:
+        if store_id != current_user.store_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only view appointments from your own store"
+            )
+    
+    # Build query
+    query = db.query(
+        Appointment,
+        Service.name.label('service_name'),
+        Service.duration_minutes.label('duration'),
+        Technician.name.label('technician_name'),
+        UserModel.username.label('customer_name'),
+        UserModel.phone.label('customer_phone')
+    ).join(
+        Service, Appointment.service_id == Service.id
+    ).join(
+        Technician, Appointment.technician_id == Technician.id
+    ).join(
+        UserModel, Appointment.user_id == UserModel.id
+    ).filter(
+        Service.store_id == store_id
+    )
+    
+    # Apply filters
+    if date:
+        try:
+            filter_date = datetime.strptime(date, "%Y-%m-%d").date()
+            query = query.filter(Appointment.appointment_date == filter_date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
+    if status:
+        try:
+            status_enum = AppointmentStatus(status)
+            query = query.filter(Appointment.status == status_enum)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid status. Use: {', '.join([s.value for s in AppointmentStatus])}")
+    
+    # Execute query with pagination
+    appointments = query.order_by(
+        Appointment.appointment_date.desc(),
+        Appointment.appointment_time.desc()
+    ).offset(skip).limit(limit).all()
+    
+    # Format response
+    result = []
+    for appt, service_name, duration, tech_name, cust_name, cust_phone in appointments:
+        result.append({
+            "id": appt.id,
+            "appointment_date": str(appt.appointment_date),
+            "appointment_time": str(appt.appointment_time),
+            "service_name": service_name,
+            "duration_minutes": duration,
+            "technician_name": tech_name,
+            "customer_name": cust_name,
+            "customer_phone": cust_phone,
+            "status": appt.status,
+            "notes": appt.notes,
+            "created_at": str(appt.created_at)
+        })
+    
+    return result
+
+
+@router.get("/{store_id}/appointments/stats", response_model=dict)
+def get_store_appointment_stats(
+    store_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_store_admin)
+):
+    """
+    Get store's appointment statistics (Store admin only)
+    
+    Returns statistics for today, this week, and this month
+    """
+    from app.models.appointment import Appointment, AppointmentStatus
+    from app.models.service import Service
+    from datetime import datetime, date, timedelta
+    from sqlalchemy import func
+    
+    # Check if store exists
+    store = crud_store.get_store(db, store_id=store_id)
+    if not store:
+        raise HTTPException(status_code=404, detail="Store not found")
+    
+    # If user is store manager (not super admin), enforce store ownership
+    if not current_user.is_admin:
+        if store_id != current_user.store_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only view statistics from your own store"
+            )
+    
+    # Calculate date ranges
+    today = date.today()
+    week_start = today - timedelta(days=today.weekday())  # Monday of current week
+    month_start = today.replace(day=1)
+    
+    # Base query
+    base_query = db.query(Appointment).join(
+        Service, Appointment.service_id == Service.id
+    ).filter(
+        Service.store_id == store_id
+    )
+    
+    # Today's stats
+    today_total = base_query.filter(Appointment.appointment_date == today).count()
+    today_pending = base_query.filter(
+        Appointment.appointment_date == today,
+        Appointment.status == AppointmentStatus.PENDING
+    ).count()
+    today_confirmed = base_query.filter(
+        Appointment.appointment_date == today,
+        Appointment.status == AppointmentStatus.CONFIRMED
+    ).count()
+    today_completed = base_query.filter(
+        Appointment.appointment_date == today,
+        Appointment.status == AppointmentStatus.COMPLETED
+    ).count()
+    
+    # This week's stats
+    week_total = base_query.filter(Appointment.appointment_date >= week_start).count()
+    week_pending = base_query.filter(
+        Appointment.appointment_date >= week_start,
+        Appointment.status == AppointmentStatus.PENDING
+    ).count()
+    week_confirmed = base_query.filter(
+        Appointment.appointment_date >= week_start,
+        Appointment.status == AppointmentStatus.CONFIRMED
+    ).count()
+    week_completed = base_query.filter(
+        Appointment.appointment_date >= week_start,
+        Appointment.status == AppointmentStatus.COMPLETED
+    ).count()
+    
+    # This month's stats
+    month_total = base_query.filter(Appointment.appointment_date >= month_start).count()
+    month_pending = base_query.filter(
+        Appointment.appointment_date >= month_start,
+        Appointment.status == AppointmentStatus.PENDING
+    ).count()
+    month_confirmed = base_query.filter(
+        Appointment.appointment_date >= month_start,
+        Appointment.status == AppointmentStatus.CONFIRMED
+    ).count()
+    month_completed = base_query.filter(
+        Appointment.appointment_date >= month_start,
+        Appointment.status == AppointmentStatus.COMPLETED
+    ).count()
+    
+    return {
+        "today": {
+            "total": today_total,
+            "pending": today_pending,
+            "confirmed": today_confirmed,
+            "completed": today_completed
+        },
+        "this_week": {
+            "total": week_total,
+            "pending": week_pending,
+            "confirmed": week_confirmed,
+            "completed": week_completed
+        },
+        "this_month": {
+            "total": month_total,
+            "pending": month_pending,
+            "confirmed": month_confirmed,
+            "completed": month_completed
+        }
+    }

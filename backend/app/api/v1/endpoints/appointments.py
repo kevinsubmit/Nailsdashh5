@@ -30,18 +30,20 @@ def create_appointment(
     """
     user_id = current_user.id
     
-    # Check for conflicts
-    has_conflict = crud_appointment.check_appointment_conflict(
+    # Check for conflicts using improved conflict checker
+    conflict_result = crud_appointment.check_time_conflict(
         db,
-        store_id=appointment.store_id,
         appointment_date=appointment.appointment_date,
-        appointment_time=str(appointment.appointment_time)
+        appointment_time=appointment.appointment_time,
+        service_id=appointment.service_id,
+        technician_id=appointment.technician_id,
+        user_id=user_id
     )
     
-    if has_conflict:
+    if conflict_result["has_conflict"]:
         raise HTTPException(
             status_code=400,
-            detail="This time slot is already booked"
+            detail=conflict_result["message"]
         )
     
     db_appointment = crud_appointment.create_appointment(
@@ -153,3 +155,128 @@ def cancel_appointment(
     cancelled_appointment = crud_appointment.cancel_appointment(db, appointment_id=appointment_id)
     
     return cancelled_appointment
+
+
+@router.patch("/{appointment_id}/confirm", response_model=Appointment)
+def confirm_appointment(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Confirm appointment (Store admin only)
+    
+    - Super admin can confirm appointments from any store
+    - Store manager can only confirm appointments from their own store
+    """
+    from app.models.service import Service
+    from app.api.deps import get_current_store_admin
+    
+    # Verify user is store admin
+    if not current_user.is_admin and not current_user.store_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only store administrators can confirm appointments"
+        )
+    
+    # Get appointment
+    appointment = crud_appointment.get_appointment(db, appointment_id=appointment_id)
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    
+    # Get service to check store ownership
+    service = db.query(Service).filter(Service.id == appointment.service_id).first()
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
+    
+    # If user is store manager (not super admin), enforce store ownership
+    if not current_user.is_admin:
+        if service.store_id != current_user.store_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only confirm appointments from your own store"
+            )
+    
+    # Check current status
+    if appointment.status == AppointmentStatus.CANCELLED:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot confirm a cancelled appointment"
+        )
+    
+    if appointment.status == AppointmentStatus.COMPLETED:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot confirm a completed appointment"
+        )
+    
+    # Update status to confirmed
+    updated_appointment = crud_appointment.update_appointment(
+        db,
+        appointment_id=appointment_id,
+        appointment=AppointmentUpdate(status=AppointmentStatus.CONFIRMED)
+    )
+    
+    return updated_appointment
+
+
+@router.patch("/{appointment_id}/complete", response_model=Appointment)
+def complete_appointment(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Mark appointment as completed (Store admin only)
+    
+    - Super admin can complete appointments from any store
+    - Store manager can only complete appointments from their own store
+    """
+    from app.models.service import Service
+    
+    # Verify user is store admin
+    if not current_user.is_admin and not current_user.store_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only store administrators can complete appointments"
+        )
+    
+    # Get appointment
+    appointment = crud_appointment.get_appointment(db, appointment_id=appointment_id)
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    
+    # Get service to check store ownership
+    service = db.query(Service).filter(Service.id == appointment.service_id).first()
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
+    
+    # If user is store manager (not super admin), enforce store ownership
+    if not current_user.is_admin:
+        if service.store_id != current_user.store_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only complete appointments from your own store"
+            )
+    
+    # Check current status
+    if appointment.status == AppointmentStatus.CANCELLED:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot complete a cancelled appointment"
+        )
+    
+    if appointment.status == AppointmentStatus.COMPLETED:
+        raise HTTPException(
+            status_code=400,
+            detail="Appointment is already completed"
+        )
+    
+    # Update status to completed
+    updated_appointment = crud_appointment.update_appointment(
+        db,
+        appointment_id=appointment_id,
+        appointment=AppointmentUpdate(status=AppointmentStatus.COMPLETED)
+    )
+    
+    return updated_appointment

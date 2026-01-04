@@ -3,7 +3,7 @@ Appointment CRUD operations
 """
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import date
+from datetime import date, time, datetime, timedelta
 from app.models.appointment import Appointment, AppointmentStatus
 from app.models.store import Store
 from app.models.service import Service
@@ -102,7 +102,7 @@ def check_appointment_conflict(
     appointment_date: date,
     appointment_time: str
 ) -> bool:
-    """Check if there's a conflicting appointment"""
+    """Check if there's a conflicting appointment (deprecated - use check_time_conflict instead)"""
     existing = db.query(Appointment).filter(
         Appointment.store_id == store_id,
         Appointment.appointment_date == appointment_date,
@@ -111,3 +111,76 @@ def check_appointment_conflict(
     ).first()
     
     return existing is not None
+
+
+def check_time_conflict(
+    db: Session,
+    appointment_date: date,
+    appointment_time: time,
+    service_id: int,
+    technician_id: Optional[int] = None,
+    user_id: Optional[int] = None,
+    exclude_appointment_id: Optional[int] = None
+) -> dict:
+    """
+    Check for time conflicts considering service duration
+    Returns: {"has_conflict": bool, "conflict_type": str, "message": str}
+    """
+    from app.models.service import Service
+    
+    # Get service duration
+    service = db.query(Service).filter(Service.id == service_id).first()
+    if not service:
+        return {"has_conflict": True, "conflict_type": "invalid_service", "message": "Service not found"}
+    
+    duration_minutes = service.duration_minutes
+    
+    # Convert appointment_time to datetime for calculation
+    appt_datetime = datetime.combine(appointment_date, appointment_time)
+    appt_end_time = appt_datetime + timedelta(minutes=duration_minutes)
+    
+    # Build base query for active appointments on the same date
+    query = db.query(Appointment, Service).join(
+        Service, Appointment.service_id == Service.id
+    ).filter(
+        Appointment.appointment_date == appointment_date,
+        Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED])
+    )
+    
+    # Exclude current appointment if updating
+    if exclude_appointment_id:
+        query = query.filter(Appointment.id != exclude_appointment_id)
+    
+    # Check technician conflict
+    if technician_id:
+        technician_appointments = query.filter(Appointment.technician_id == technician_id).all()
+        
+        for appt, svc in technician_appointments:
+            existing_datetime = datetime.combine(appointment_date, appt.appointment_time)
+            existing_end_time = existing_datetime + timedelta(minutes=svc.duration_minutes)
+            
+            # Check if time ranges overlap
+            if (appt_datetime < existing_end_time and appt_end_time > existing_datetime):
+                return {
+                    "has_conflict": True,
+                    "conflict_type": "technician",
+                    "message": f"The technician is already booked from {existing_datetime.strftime('%H:%M')} to {existing_end_time.strftime('%H:%M')}"
+                }
+    
+    # Check user conflict
+    if user_id:
+        user_appointments = query.filter(Appointment.user_id == user_id).all()
+        
+        for appt, svc in user_appointments:
+            existing_datetime = datetime.combine(appointment_date, appt.appointment_time)
+            existing_end_time = existing_datetime + timedelta(minutes=svc.duration_minutes)
+            
+            # Check if time ranges overlap
+            if (appt_datetime < existing_end_time and appt_end_time > existing_datetime):
+                return {
+                    "has_conflict": True,
+                    "conflict_type": "user",
+                    "message": f"You already have an appointment from {existing_datetime.strftime('%H:%M')} to {existing_end_time.strftime('%H:%M')}"
+                }
+    
+    return {"has_conflict": False, "conflict_type": None, "message": "No conflict"}

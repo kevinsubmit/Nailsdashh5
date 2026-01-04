@@ -22,6 +22,7 @@ class Appointment(Base):
     user_id = Column(Integer, nullable=False, index=True)
     store_id = Column(Integer, nullable=False, index=True)
     service_id = Column(Integer, nullable=False, index=True)
+    technician_id = Column(Integer, nullable=True, index=True)  # Optional: specific technician
     appointment_date = Column(Date, nullable=False, index=True)
     appointment_time = Column(Time, nullable=False)
     status = Column(

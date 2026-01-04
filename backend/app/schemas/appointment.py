@@ -11,6 +11,7 @@ class AppointmentBase(BaseModel):
     """Appointment base schema"""
     store_id: int
     service_id: int
+    technician_id: Optional[int] = None  # Optional: specific technician
     appointment_date: date
     appointment_time: time
     notes: Optional[str] = None
@@ -33,6 +34,7 @@ class Appointment(AppointmentBase):
     """Appointment response schema"""
     id: int
     user_id: int
+    technician_id: Optional[int] = None
     status: AppointmentStatus
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -47,6 +49,7 @@ class AppointmentWithDetails(Appointment):
     service_name: Optional[str] = None
     service_price: Optional[float] = None
     service_duration: Optional[int] = None
+    technician_name: Optional[str] = None
 
     class Config:
         from_attributes = True
