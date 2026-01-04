@@ -18,7 +18,8 @@ class User(Base):
     avatar_url = Column(String(500), nullable=True)
     phone_verified = Column(Boolean, default=False, nullable=False)  # 手机号是否已验证
     is_active = Column(Boolean, default=True, nullable=False)
-    is_admin = Column(Boolean, default=False, nullable=False)
+    is_admin = Column(Boolean, default=False, nullable=False)  # 超级管理员
+    store_id = Column(Integer, nullable=True, index=True)  # 店铺管理员关联的店铺ID
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     

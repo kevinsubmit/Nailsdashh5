@@ -286,11 +286,12 @@ Content-Type: application/json
 }
 ```
 
-**请求示例**:
+**请求示例**：
 
 ```bash
+# 超级管理员可以为任意店铺创建美甲师
 curl -X POST "http://localhost:8000/api/v1/technicians/" \
-  -H "Authorization: Bearer <access_token>" \
+  -H "Authorization: Bearer <super_admin_token>" \
   -H "Content-Type: application/json" \
   -d '{
     "store_id": 4,
@@ -300,6 +301,16 @@ curl -X POST "http://localhost:8000/api/v1/technicians/" \
     "bio": "Professional nail artist with 8 years of experience",
     "specialties": "Gel Nails, Nail Art, French Manicure",
     "years_of_experience": 8
+  }'
+
+# 店铺管理员只能为自己的店铺创建美甲师
+curl -X POST "http://localhost:8000/api/v1/technicians/" \
+  -H "Authorization: Bearer <store_manager_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "store_id": 4,
+    "name": "Emily Chen",
+    "phone": "555-0123"
   }'
 ```
 
@@ -322,11 +333,17 @@ curl -X POST "http://localhost:8000/api/v1/technicians/" \
 }
 ```
 
-**错误响应**:
+**错误响应**：
 
 - `401 Unauthorized`: 未提供认证令牌或令牌无效
-- `403 Forbidden`: 非管理员用户尝试创建美甲师
+- `403 Forbidden`: 非管理员用户尝试创建美甲师，或店铺管理员尝试为其他店铺创建美甲师
 - `422 Unprocessable Entity`: 请求体验证失败（例如：缺少必填字段）
+
+```json
+// 店铺管理员尝试跨店铺操作的错误响应
+{
+  "detail": "You can only create technicians for your own store"
+}
 
 ---
 
@@ -509,7 +526,7 @@ curl -X PATCH "http://localhost:8000/api/v1/technicians/3/availability?is_active
 
 ## 认证机制
 
-美甲师管理模块使用 **JWT (JSON Web Token)** 进行身份认证和授权。
+美甲师管理模块使用 **JWT (JSON Web Token)** 进行身份认证和授权，并实现了三级权限体系。
 
 ### 获取访问令牌
 
@@ -543,15 +560,33 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### 权限级别
 
+系统实现了三级权限体系：
+
+**1. 普通用户**：
+- 只能查看公开信息
+- 无法管理任何内容
+
+**2. 店铺管理员**（Store Manager）：
+- 用户表中 `store_id` 字段不为空
+- 只能管理自己店铺的美甲师
+- 无法跨店铺操作
+- 适用场景：店铺老板管理自己的员工
+
+**3. 超级管理员**（Super Admin）：
+- 用户表中 `is_admin=true`
+- 可以管理所有店铺的美甲师
+- 平台最高权限
+- 适用场景：平台运营人员
+
 **公开端点**（无需认证）：
 - `GET /api/v1/technicians/` - 获取美甲师列表
 - `GET /api/v1/technicians/{id}` - 获取美甲师详情
 
-**管理员端点**（需要管理员权限）：
-- `POST /api/v1/technicians/` - 创建美甲师
-- `PATCH /api/v1/technicians/{id}` - 更新美甲师
-- `DELETE /api/v1/technicians/{id}` - 删除美甲师
-- `PATCH /api/v1/technicians/{id}/availability` - 切换可用性
+**店铺管理员/超级管理员端点**：
+- `POST /api/v1/technicians/` - 创建美甲师（店铺管理员只能为自己店铺创建）
+- `PATCH /api/v1/technicians/{id}` - 更新美甲师（店铺管理员只能更新自己店铺的）
+- `DELETE /api/v1/technicians/{id}` - 删除美甲师（店铺管理员只能删除自己店铺的）
+- `PATCH /api/v1/technicians/{id}/availability` - 切换可用性（店铺管理员只能切换自己店铺的）
 
 ---
 
@@ -672,9 +707,17 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ## 常见问题
 
-### Q1: 如何区分管理员和普通用户？
+### Q1: 如何区分超级管理员、店铺管理员和普通用户？
 
-**A**: 系统通过用户表中的 `is_admin` 字段来区分管理员和普通用户。管理员用户的 `is_admin` 字段值为 `true`，普通用户为 `false`。在API请求中，系统会自动从JWT令牌中解析用户信息并验证权限。
+**A**: 系统通过用户表中的两个字段来区分权限：
+
+**超级管理员**：`is_admin=true`，可以管理所有店铺和美甲师。
+
+**店铺管理员**：`is_admin=false` 且 `store_id` 不为空，只能管理自己店铺的美甲师。
+
+**普通用户**：`is_admin=false` 且 `store_id` 为空，只能查看公开信息。
+
+在API请求中，系统会自动从jWT令牌中解析用户信息并验证权限。
 
 ### Q2: 禁用美甲师和删除美甲师有什么区别？
 
@@ -691,6 +734,24 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ### Q5: 美甲师可以同时属于多个店铺吗？
 
 **A**: 当前数据模型中，每个美甲师只能属于一个店铺（通过 `store_id` 外键关联）。如果美甲师在多个店铺工作，需要为每个店铺创建单独的美甲师记录。未来版本可能会支持多对多关系。
+
+### Q8: 店铺管理员如何获得权限？
+
+**A**: 店铺管理员的权限由超级管理员分配。超级管理员需要：
+1. 创建一个普通用户账户
+2. 将该用户的 `store_id` 字段设置为对应的店铺ID
+3. 该用户即成为该店铺的管理员
+
+注意：一个用户只能管理一个店铺。如果需要管理多个店铺，需要创建多个账户或使用超级管理员账户。
+
+### Q9: 如何防止店铺管理员跨店铺操作？
+
+**A**: 系统在每个管理接口中都会验证：
+1. 检查用户是否为超级管理员（`is_admin=true`）
+2. 如果不是，检查操作目标的 `store_id` 是否与用户的 `store_id` 相同
+3. 如果不同，返回403错误
+
+这样确保了店铺管理员只能管理自己店铺的资源。
 
 ### Q6: 如何处理美甲师头像上传？
 

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.api.deps import get_db, get_current_admin_user
+from app.api.deps import get_db, get_current_admin_user, get_current_store_admin
 from app.models.user import User
 from app.crud import technician as crud_technician
 from app.schemas.technician import Technician, TechnicianCreate, TechnicianUpdate
@@ -55,13 +55,22 @@ def get_technician(
 def create_technician(
     technician: TechnicianCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)
+    current_user: User = Depends(get_current_store_admin)
 ):
     """
-    Create a new technician (Admin only)
+    Create a new technician (Store admin only)
     
-    Requires admin permissions
+    - Super admin can create technicians for any store
+    - Store manager can only create technicians for their own store
     """
+    # If user is store manager (not super admin), enforce store ownership
+    if not current_user.is_admin:
+        if technician.store_id != current_user.store_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only create technicians for your own store"
+            )
+    
     new_technician = crud_technician.create_technician(db, technician=technician)
     return new_technician
 
@@ -71,20 +80,32 @@ def update_technician(
     technician_id: int,
     technician: TechnicianUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)
+    current_user: User = Depends(get_current_store_admin)
 ):
     """
-    Update technician information (Admin only)
+    Update technician information (Store admin only)
     
-    Requires admin permissions
+    - Super admin can update technicians from any store
+    - Store manager can only update technicians from their own store
     """
+    # Get existing technician
+    existing_technician = crud_technician.get_technician(db, technician_id=technician_id)
+    if not existing_technician:
+        raise HTTPException(status_code=404, detail="Technician not found")
+    
+    # If user is store manager (not super admin), enforce store ownership
+    if not current_user.is_admin:
+        if existing_technician.store_id != current_user.store_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only update technicians from your own store"
+            )
+    
     updated_technician = crud_technician.update_technician(
         db,
         technician_id=technician_id,
         technician=technician
     )
-    if not updated_technician:
-        raise HTTPException(status_code=404, detail="Technician not found")
     return updated_technician
 
 
@@ -92,16 +113,25 @@ def update_technician(
 def delete_technician(
     technician_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)
+    current_user: User = Depends(get_current_store_admin)
 ):
     """
-    Delete a technician (Admin only)
+    Delete a technician (Store admin only)
     
-    Requires admin permissions
+    - Super admin can delete technicians from any store
+    - Store manager can only delete technicians from their own store
     """
     technician = crud_technician.get_technician(db, technician_id=technician_id)
     if not technician:
         raise HTTPException(status_code=404, detail="Technician not found")
+    
+    # If user is store manager (not super admin), enforce store ownership
+    if not current_user.is_admin:
+        if technician.store_id != current_user.store_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only delete technicians from your own store"
+            )
     
     crud_technician.delete_technician(db, technician_id=technician_id)
     return None
@@ -112,16 +142,25 @@ def toggle_technician_availability(
     technician_id: int,
     is_active: int = Query(..., ge=0, le=1, description="0 for inactive, 1 for active"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)
+    current_user: User = Depends(get_current_store_admin)
 ):
     """
-    Toggle technician availability (Admin only)
+    Toggle technician availability (Store admin only)
     
-    Requires admin permissions
+    - Super admin can toggle availability for technicians from any store
+    - Store manager can only toggle availability for technicians from their own store
     """
     technician = crud_technician.get_technician(db, technician_id=technician_id)
     if not technician:
         raise HTTPException(status_code=404, detail="Technician not found")
+    
+    # If user is store manager (not super admin), enforce store ownership
+    if not current_user.is_admin:
+        if technician.store_id != current_user.store_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only toggle availability for technicians from your own store"
+            )
     
     updated_technician = crud_technician.update_technician(
         db,

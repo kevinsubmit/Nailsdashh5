@@ -91,3 +91,36 @@ async def get_current_admin_user(
         )
     
     return current_user
+
+
+async def get_current_store_admin(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """
+    Get current authenticated store admin user
+    
+    Store admin is either:
+    1. Super admin (is_admin=True) - can manage all stores
+    2. Store manager (store_id is not None) - can only manage their own store
+    
+    Args:
+        current_user: Current authenticated user
+        
+    Returns:
+        Current store admin user
+        
+    Raises:
+        HTTPException: If user is not a store admin
+    """
+    # Super admin can manage all stores
+    if current_user.is_admin:
+        return current_user
+    
+    # Store manager must have store_id
+    if current_user.store_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions. You must be a store manager or super admin."
+        )
+    
+    return current_user
